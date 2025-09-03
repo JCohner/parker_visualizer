@@ -15,7 +15,7 @@ class Visualizer():
     '''
     function generation values
     '''
-    self.step = 201 # number of points that make up the curve, increase to get line
+    self.step = 402 # number of points that make up the curve, increase to get line
     self.t = np.linspace(-np.pi, np.pi, self.step)
     self.A = 80 # TODO: unused
     self.B = 100 # TODO: unused
@@ -65,30 +65,38 @@ class Visualizer():
     sys.exit(0)
 
   def work_func(self):    
-    color = 0
-    image = np.zeros((self.window_x, self.window_y, 3))
-    for frame in range(self.theta_step):
-      now = time.time()
-      if (not self.should_run.value):
-          break
-      for circle_idx in range(self.step):
-        image *= 0.99
-        cv.circle(image, (self.x[circle_idx%self.step], self.y[circle_idx%self.step]), 4, (255, 0 ,255), -1)
-      self.movie[:,:,:,frame] = image
-      ## TODO: make optional image save with argparse
-      if (self.should_save):
-        cv.imwrite(self.form_of_file_path(frame), image)
-
-      print(f"time elapsed: {(time.time() - now):.2f} [seconds / rendered_frame] \r", end="")
-      self.x = (256 * np.sin(self.a * self.t + self.deltas[self.theta_index])).astype(int) + 512
-      self.theta_index += 1
-      color = (color + 30) % 255
-      
-    while(self.should_run.value):
+    if (self.should_generate):
+      color = 0
+      image = np.zeros((self.window_x, self.window_y, 3))
       for frame in range(self.theta_step):
-        print(f"running {frame}\r", end="")
-        cv.imshow("image", self.movie[:,:,:,frame])
-        cv.waitKey(20)
+        now = time.time()
+        if (not self.should_run.value):
+            break
+        for circle_idx in range(self.step):
+          image *= 0.99
+          cv.circle(image, (self.x[circle_idx%self.step], self.y[circle_idx%self.step]), 4, (255, 0 ,255), -1)
+        self.movie[:,:,:,frame] = image
+        ## TODO: make optional image save with argparse
+        if (self.should_save):
+          cv.imwrite(self.form_of_file_path(frame), image)
+
+        print(f"time elapsed: {(time.time() - now):.2f} [seconds / rendered_frame] |\t frame count: {frame+1}/{self.theta_step}\r", end="")
+        self.x = (256 * np.sin(self.a * self.t + self.deltas[self.theta_index])).astype(int) + 512
+        self.theta_index += 1
+        color = (color + 30) % 255
+
+    if (self.should_display):
+      while(self.should_run.value):
+          for frame in range(self.theta_step):
+            print(f"running {frame}\r", end="")
+            if (self.should_generate):
+              cv.imshow("image", self.movie[:,:,:,frame])
+            else:
+              cv.imshow("image", cv.imread(self.form_of_file_path(frame)))
+            cv.waitKey(20)
+
+    print("")
+    self.should_run.value = False
 
   def is_working(self):
     return self.should_run.value

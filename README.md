@@ -11,3 +11,5 @@
 
 ## TODO:
 * switch debugging to using `logging`
+* perist generated files
+* arg parse in wether to generate or display

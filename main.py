@@ -1,49 +1,82 @@
+import signal
+import sys
 import time
+
+from threading import Thread
+from multiprocessing import Value
+from ctypes import c_bool
 
 import cv2 as cv
 import numpy as np
 
+class Visualizer():
+  def __init__(self):
+    '''
+    function generation values
+    '''
+    self.step = 804 # number of points that make up the curve, increase to get line
+    self.t = np.linspace(-np.pi, np.pi, self.step)
+    self.A = 80 # TODO: unused
+    self.B = 100 # TODO: unused
+    self.a = 5
+    self.b = 4
+    self.theta_step = 60
+    self.theta_index = 0
+    self.deltas = np.linspace(0, 2 * np.pi, self.theta_step)
+    self.x = (256 * np.sin(self.a * self.t)).astype(int) + 512
+    self.y = (256 * np.sin(self.b*self.t)).astype(int) + 512
 
-step = 804 # number of points that make up the curve, increase to get line
-t = np.linspace(-np.pi, np.pi, step)
-A = 80
-B = 100
-a = 5
-b = 4
-theta_step = 60
-theta_index = 0
-deltas = np.linspace(0, 2 * np.pi, theta_step)
-x = (256 * np.sin(a * t)).astype(int) + 512
-y = (256 * np.sin(b*t)).astype(int) + 512
+    '''
+    opencv representation values
+    '''
+    self.window_x = 1024
+    self.window_y = 1024
+    self.movie = np.zeros((1024,1024,3,self.deltas.shape[0]))
 
-window_x = 1024
-window_y = 1024
+    '''
+    runtime values
+    '''
+    self.should_run = Value(c_bool, False)
+    self.work_proc = Thread(target=self.work_func)
 
-movie = np.zeros((1024,1024,3,deltas.shape[0]))
+  def start_run(self):
+    self.should_run.value = True
+    self.work_proc.start()
 
-def main():
-	global x, delta, theta_index
-	
-	# TODO: what does 1000 mean in this context
-	color = 0
-	image = np.zeros((window_x, window_y, 3))
-	for m in range(theta_step):
-		now = time.time()
-		for i in range(step):
-			image *= 0.99
-			cv.circle(image, (x[i%step], y[i%step]), 4, (255, 0 ,255), -1)
-		movie[:,:,:,m] = image
-		print(f"time elapsed: {time.time() - now}\r")
-		x = (256 * np.sin(a * t + deltas[theta_index])).astype(int) + 512
-		theta_index += 1
-		color = (color + 30) % 255
-		cv.waitKey(30)
+  def stop_run(self, sig, sign_frame):
+    self.should_run.value = False
+    self.work_proc.join()
+    sys.exit(0)
 
-	while(True):
-		for i in range(theta_step):
-			cv.imshow("image", movie[:,:,:,i])
-			cv.waitKey(20)
+  def work_func(self):    
+    color = 0
+    image = np.zeros((self.window_x, self.window_y, 3))
+    for m in range(self.theta_step):
+      now = time.time()
+      if (not self.should_run.value):
+          break
+      for i in range(self.step):
+        image *= 0.99
+        cv.circle(image, (self.x[i%self.step], self.y[i%self.step]), 4, (255, 0 ,255), -1)
+      self.movie[:,:,:,m] = image
+      print(f"time elapsed: {(time.time() - now):.2f}\r")
+      self.x = (256 * np.sin(self.a * self.t + self.deltas[self.theta_index])).astype(int) + 512
+      self.theta_index += 1
+      color = (color + 30) % 255
+      cv.waitKey(30)
 
+    while(self.should_run.value):
+      for i in range(self.theta_step):
+        print(f"running {i}")
+        cv.imshow("image", self.movie[:,:,:,i])
+        cv.waitKey(20)
+
+  def is_working(self):
+    return self.should_run.value
 
 if __name__ == "__main__":
-	main()
+  egg = Visualizer()
+  signal.signal(signal.SIGINT, egg.stop_run)
+  egg.start_run()
+  while(egg.is_working()):
+    time.sleep(0.5)

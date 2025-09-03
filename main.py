@@ -1,9 +1,9 @@
 import signal
 import sys
 import time
+import os
 
-from threading import Thread
-from multiprocessing import Value
+from multiprocessing import Process, Value
 from ctypes import c_bool
 
 import cv2 as cv
@@ -37,15 +37,16 @@ class Visualizer():
     runtime values
     '''
     self.should_run = Value(c_bool, False)
-    self.work_proc = Thread(target=self.work_func)
+    self.work_proc = Process(target=self.work_func)
 
   def start_run(self):
     self.should_run.value = True
-    self.work_proc.start()
+    self.work_proc.run()
 
   def stop_run(self, sig, sign_frame):
     self.should_run.value = False
-    self.work_proc.join()
+    if (self.work_proc.is_alive()):
+      self.work_proc.join()
     sys.exit(0)
 
   def work_func(self):    
